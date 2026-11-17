@@ -1,4 +1,4 @@
-import type { Agent, Client, Decision, Holding, MarketEvent, Perspective, PerspectiveCopy, Screen } from '../types.ts';
+import type { Agent, Client, ClientId, Decision, Holding, MarketEvent, Perspective, PerspectiveCopy, Scenario, Screen } from '../types.ts';
 
 export const screenList: { id: Screen; label: string; short: string; eyebrow: string; description: string }[] = [
   { id: 'eventos', label: 'Centro de eventos', short: 'Eventos', eyebrow: 'INTELIGENCIA DE MERCADO', description: 'Del contexto de mercado a la oportunidad de cada cliente.' },
@@ -34,6 +34,20 @@ export const marketEvents: MarketEvent[] = [
     tags: ['Renta fija', 'Fibras', 'Deuda corporativa'],
   },
   {
+    id: 'petroleo', category: 'Energía y geopolítica', institution: 'ESCENARIO ENERGÉTICO',
+    title: 'El crudo se dispara ante el escalamiento del conflicto con Irán',
+    description: 'En este escenario ficticio, el crudo sube de USD 75 a USD 90 por barril tras una escalada de tensiones con Irán. El choque eleva la incertidumbre sobre suministro, inflación y márgenes del sector energético.',
+    time: '22 oct 2026', impact: 'Riesgo elevado', tone: 'amber', featured: false,
+    tags: ['Energía', 'Irán', 'Crudo', 'Suministro'],
+  },
+  {
+    id: 'deuda-global', category: 'Renta fija global', institution: 'MERCADOS DE DEUDA',
+    title: 'Los mercados de deuda muestran diferencias entre regiones',
+    description: 'Escenario ficticio de condiciones de tasas y riesgos soberanos distintos en EUA, México y otros mercados desarrollados. La región del emisor, la duración y la moneda son dimensiones diferentes del riesgo en renta fija.',
+    time: '22 oct 2026', impact: 'En observación', tone: 'blue', featured: false,
+    tags: ['Renta fija', 'Tasas', 'Deuda soberana', 'Regiones'],
+  },
+  {
     id: 'fed', category: 'Política monetaria', institution: 'RESERVA FEDERAL',
     title: 'La FED mantiene su postura de cautela',
     description: 'El escenario de tasas estables invita a revisar la exposición a deuda en dólares.',
@@ -54,12 +68,6 @@ export const marketEvents: MarketEvent[] = [
     time: 'Hace 3 h', impact: 'En observación', tone: 'neutral', featured: false,
     tags: ['USD / MXN', 'Diversificación'],
   },
-];
-
-export const clients: Client[] = [
-  { id: 'MT-1042', name: demoCase.client, initials: 'MT', profile: 'Moderado', value: demoCase.value, event: 'Recorte Banxico · −25 pb', status: 'Propuesta lista', main: true },
-  { id: 'CL-2086', name: 'Carlos López', initials: 'CL', profile: 'Conservador', value: 1_800_000, event: 'Recorte Banxico · −25 pb', status: 'Vista previa', main: false },
-  { id: 'AG-3108', name: 'Ana García', initials: 'AG', profile: 'Dinámico', value: 4_200_000, event: 'Volatilidad USD / MXN', status: 'Vista previa', main: false },
 ];
 
 export const agents: Agent[] = [
@@ -116,7 +124,7 @@ export const perspectives: Record<Perspective, PerspectiveCopy> = {
     label: 'Vista técnica', role: 'Arquitectura multiagente', description: 'Orquestación explicable, sin ejecución real',
     screens: {
       eventos: { title: 'Entrada estructurada: macro_event', body: 'Fixture MACRO-01 → normalización predefinida → asociación con el caso NX-2026-042. No existe ingesta de mercado ni un modelo conectado.', points: ['source: fixture', 'delta_bps: -25', 'currency: MXN'] },
-      bandeja: { title: 'Asociación de caso y perfil', body: 'El cliente MT-1042 se enlaza al evento Banxico mediante identificadores locales. Los otros clientes son vistas previas sin pipeline propio.', points: ['client_id: MT-1042', 'case_id: NX-2026-042', 'execution: mocked'] },
+      bandeja: { title: 'Asociación de caso y perfil', body: 'Tres clientes se enlazan con sus escenarios mediante identificadores locales validados en la URL. Cada caso tiene entradas y salidas predefinidas, sin pipeline ejecutándose.', points: ['cases: 3', 'selection: URL', 'execution: mocked'] },
       detalle: { title: 'Tres análisis → una síntesis', body: 'Las salidas de macro, instrumentos y riesgo alimentan la síntesis. Las herramientas .mock y sus duraciones son datos estáticos, no llamadas reales.', points: ['Entradas tipadas', 'Sin inferencia LLM', 'Sin backend'] },
       simulador: { title: 'Comparación determinista de fixtures', body: 'Los importes se obtienen de patrimonio × ponderación / 100. Riesgo y rendimiento son supuestos estáticos, sin optimizador ni modelo predictivo.', points: ['allocation_total: 100%', 'portfolio_value: 2500000', 'optimizer: none'] },
       aprobacion: { title: 'Interfaz sin command handler operativo', body: 'Las acciones abren diálogos locales. No hay endpoint de órdenes, escritura de decisiones ni mutación del registro de trazabilidad.', points: ['orders: disabled', 'audit: static fixture', 'decision_storage: none'] },
@@ -138,12 +146,206 @@ export const money = (value: number) => new Intl.NumberFormat('es-MX', {
   style: 'currency', currency: 'MXN', maximumFractionDigits: 0,
 }).format(value);
 
-export const amount = (weight: number) => demoCase.value * weight / 100;
-export const rebalance = {
-  buys: holdings.filter((h) => h.id !== 'efectivo').reduce((total, h) => total + Math.max(0, amount(h.proposed - h.current)), 0),
-  sales: holdings.filter((h) => h.id !== 'efectivo').reduce((total, h) => total + Math.max(0, amount(h.current - h.proposed)), 0),
-  cashUsed: amount(holdings.filter((h) => h.id === 'efectivo').reduce((total, h) => total + h.current - h.proposed, 0)),
-};
+export const amount = (weight: number, value = demoCase.value) => value * weight / 100;
 export const isScreen = (value: unknown): value is Screen => screenList.some((screen) => screen.id === value);
 export const isPerspective = (value: unknown): value is Perspective =>
   typeof value === 'string' && Object.hasOwn(perspectives, value);
+
+const carlosHoldings: Holding[] = [
+  { id: 'refinadora', name: 'Refinadora Horizonte', instrument: 'Emisora ficticia de refinación · no extracción', color: '#254a52', current: 15, proposed: 20, assetClass: 'equity', region: 'EUA', currency: 'USD sin cobertura', sensitivity: 'Márgenes y suministro', rationale: 'Aumentar solo bajo el supuesto de márgenes resistentes; el crudo caro no garantiza mejores resultados.' },
+  { id: 'global', name: 'Acciones globales diversificadas', instrument: 'Canasta ficticia que excluye Refinadora Horizonte', color: '#56968a', current: 40, proposed: 45, assetClass: 'equity', region: 'Global', currency: 'Multimoneda sin cobertura', sensitivity: 'Volatilidad de mercado', rationale: 'Diversificar la exposición accionaria; la canasta excluye la posición directa en la refinadora.' },
+  { id: 'local', name: 'Deuda gubernamental local', instrument: 'Canasta soberana MX ilustrativa', color: '#8bbcac', current: 20, proposed: 15, assetClass: 'debt', region: 'México', currency: 'MXN', sensitivity: 'Tasas locales', rationale: 'Financiar parte del aumento accionario, aceptando una menor proporción defensiva.' },
+  { id: 'deuda-global', name: 'Deuda global de alta calidad', instrument: 'Canasta ficticia de grado de inversión', color: '#b7cba9', current: 15, proposed: 10, assetClass: 'debt', region: 'Global', currency: 'Multimoneda; cobertura MXN supuesta', sensitivity: 'Crédito, tasas y cobertura', rationale: 'Reducir cinco puntos para financiar renta variable; permanecen riesgos de crédito y cobertura.' },
+  { id: 'efectivo', name: 'Efectivo', instrument: 'Saldo disponible MXN', color: '#d9e1e0', current: 10, proposed: 10, assetClass: 'cash', region: 'México', currency: 'MXN', sensitivity: 'Liquidez', rationale: 'Mantener la reserva de 10% sin financiar compras con efectivo.' },
+];
+
+const anaHoldings: Holding[] = [
+  { id: 'eua', name: 'Deuda de EUA', instrument: 'Canasta soberana estadounidense · duración corta', color: '#254a52', current: 95, proposed: 60, assetClass: 'debt', region: 'EUA', currency: 'USD; cobertura MXN supuesta', sensitivity: 'Concentración regional y tasas', rationale: 'Reducir la concentración en un solo país, conservando deuda de alta calidad y duración corta.' },
+  { id: 'mexico', name: 'Deuda gubernamental mexicana', instrument: 'Canasta soberana MX · duración corta', color: '#56968a', current: 0, proposed: 20, assetClass: 'debt', region: 'México', currency: 'MXN', sensitivity: 'Tasas y riesgo soberano local', rationale: 'Incorporar deuda local; diversificar no elimina el riesgo soberano ni de tasas.' },
+  { id: 'desarrollados', name: 'Deuda desarrollada excluyendo EUA', instrument: 'Canasta soberana ficticia · alta calidad y duración corta', color: '#8bbcac', current: 0, proposed: 15, assetClass: 'debt', region: 'Desarrollados excl. EUA', currency: 'EUR y JPY; cobertura MXN supuesta', sensitivity: 'Tasas, regiones y cobertura', rationale: 'Añadir otras regiones sin acciones ni deuda de alto rendimiento. La cobertura tiene costos y riesgo residual.' },
+  { id: 'efectivo', name: 'Efectivo', instrument: 'Saldo disponible MXN', color: '#d9e1e0', current: 5, proposed: 5, assetClass: 'cash', region: 'México', currency: 'MXN', sensitivity: 'Liquidez', rationale: 'Conservar la reserva de 5% del caso; no es un mínimo regulatorio.' },
+];
+
+function scenarioAgents(results: [string, string, string, string]): Agent[] {
+  return agents.map((agent, index) => ({ ...agent, result: results[index] }));
+}
+
+function scenarioTimeline(source: string, summary: string): Scenario['timeline'] {
+  return [
+    { time: '09:00:00', title: 'Entradas del caso identificadas', body: `Fuentes ficticias: ${source}. No hay ingesta de datos reales.` },
+    { time: '09:00:02', title: 'Análisis especializados completados', body: 'Salidas predefinidas de macro, instrumentos y perfil del cliente de este caso.' },
+    { time: '09:00:06', title: 'Propuesta sintetizada', body: `${summary} Versión DEMO-1; no es una operación.` },
+    { time: '09:00:08', title: 'Validaciones de ejemplo revisadas', body: 'Asignación, patrimonio y reserva conciliados. Sin certificación regulatoria ni consentimiento.' },
+  ];
+}
+
+export const cases: Record<ClientId, Scenario> = {
+  'MT-1042': {
+    ...demoCase, eventId: 'banxico', clientId: 'MT-1042', initials: 'MT', riskLevel: 3, holdings, agents, timeline,
+    event: {
+      title: 'Banxico: un recorte hipotético de 25 pb',
+      description: 'Tasa de referencia del escenario: 7.50% → 7.25%. Menor costo de financiamiento, con efectos distintos según el activo.',
+      source: 'MACRO-01',
+      inputs: { scenario_date: '2026-10-22', previous_rate_pct: 7.5, reference_rate_pct: 7.25, cut_basis_points: 25 },
+    },
+    causalSteps: [
+      { title: 'Baja la tasa', text: 'Recorte ficticio de 25 pb en la referencia de Banxico.' },
+      { title: 'Cambia el escenario', text: 'Menor reinversión a corto plazo; posible apoyo a duración y Fibras.' },
+      { title: 'Se cruza con el perfil', text: 'Cartera moderada, horizonte de 5 años y reserva de liquidez.' },
+      { title: 'Se propone un ajuste', text: 'Más mediano plazo y Fibras, sin cambiar acciones y ETF.' },
+    ],
+    recommendation: 'Reducir deuda de corto plazo y efectivo para aumentar mediano plazo y Fibras, manteniendo acciones y ETF.',
+    riskNote: 'Los beneficios no están garantizados. Mayor duración también implica sensibilidad si las tasas suben.',
+    conversation: '¿Qué cambia para tus inversiones cuando bajan las tasas?',
+    advisorScript: {
+      opening: 'Hola Mariana, ¿cómo estás? ¿Tienes unos minutos para que revisemos qué significa el cambio de tasas para tus inversiones?',
+      event: 'En este escenario, Banxico acaba de bajar la tasa de 7.50% a 7.25%. Eso puede hacer que, al vencer tus inversiones de corto plazo, tengas que reinvertir a una tasa menor.',
+      impact: 'Hoy tienes 40% de tu cartera en deuda de corto plazo. No significa que debamos mover todo: queremos revisar cómo seguir buscando crecimiento a cinco años, sin perder de vista el dinero que necesitas disponible.',
+      proposal: 'Te propongo comparar una alternativa: bajar deuda de corto plazo de 40% a 30%, subir mediano plazo de 20% a 30% y Fibras de 5% a 10%, usando parte del efectivo, que pasaría de 10% a 5%. Mantendríamos acciones y ETF sin cambios. No hay rendimientos garantizados: aumentar duración también puede generar pérdidas si las tasas suben, y las Fibras conservan riesgos de ocupación y financiamiento.',
+      closing: 'Antes de considerar cualquier movimiento, ¿han cambiado tus metas o tus necesidades de liquidez? Podemos revisar juntos la comparación y sus riesgos, o mantener la cartera actual. Esta conversación no autoriza ninguna operación.',
+    },
+    auditSource: 'AUDIT-01',
+  },
+  'CL-2086': {
+    id: 'NX-2026-043', eventId: 'petroleo', clientId: 'CL-2086', initials: 'CL', date: '22 oct 2026', client: 'Carlos López',
+    value: 1_800_000, profile: 'Dinámico', riskLevel: 5, goal: 'Crecimiento con alta tolerancia al riesgo', horizon: '7 años',
+    estimatedRisk: { current: 14.2, proposed: 17.1 }, estimatedReturn: { current: 9.2, proposed: 10.1 },
+    event: {
+      title: 'Refinadora Horizonte: resultados sólidos y tensión con Irán',
+      description: 'El reporte ficticio del 20 oct supera el consenso. Ayer, 21 oct 2026, una nota ficticia señaló escalamiento del conflicto con Irán; hoy, 22 oct, el crudo salta de USD 75 a USD 90 (+20%). Un supuesto posterior de márgenes resistentes permite ilustrar una mayor exposición, sin garantizarla.',
+      source: 'ENERGY-01 · REPORT-CL-01 · MARGIN-CL-01',
+      inputs: {
+        report_date: '2026-10-20', eps_actual_usd: 2.4, eps_consensus_usd: 2,
+        conflict_news_date: '2026-10-21', scenario_date: '2026-10-22',
+        oil_previous_usd_per_barrel: 75, oil_scenario_usd_per_barrel: 90,
+        refining_margin_before_usd_per_barrel: 18, refining_margin_assumed_after_usd_per_barrel: 19,
+        margin_assumption_date: '2026-10-22',
+        margin_basis: 'Supuesto: el precio de productos refinados compensa el mayor costo del crudo. No es un dato observado.',
+      },
+    },
+    holdings: carlosHoldings,
+    agents: scenarioAgents([
+      'Nota ENERGY-01 del 21 oct: escalamiento ficticio con Irán. El 22 oct el crudo pasa de USD 75 a 90 (+20%); aumentan incertidumbre e interrupciones potenciales.',
+      'REPORT-CL-01: utilidad por acción USD 2.40 frente a consenso USD 2.00. MARGIN-CL-01 supone margen posterior de USD 19/barril frente a 18; no se deduce del reporte histórico ni del crudo caro.',
+      'Perfil dinámico y alta tolerancia al riesgo; esto no acredita capacidad para absorber pérdidas. Renta variable 55% → 65%; refinadora 15% → 20%, tope del fixture, no límite regulatorio.',
+      'Aumentar cinco puntos en refinadora y cinco en acciones globales, financiados con reducciones de cinco puntos en cada canasta de deuda. Conservar efectivo 10%; riesgo supuesto mayor.',
+    ]),
+    causalSteps: [
+      { title: 'Dos señales contrapuestas', text: 'Reporte superior al consenso frente al escalamiento con Irán y al crudo +20%.' },
+      { title: 'Márgenes bajo supuesto', text: 'El margen de refinación resistente se añade como hipótesis, no como efecto automático del petróleo.' },
+      { title: 'Perfil dinámico', text: 'Carlos acepta volatilidad; tolerancia no equivale a capacidad de pérdida certificada.' },
+      { title: 'Más exposición accionaria', text: 'Renta variable 55% → 65%; la refinadora concentra 20% y aumenta el riesgo.' },
+    ],
+    recommendation: 'Aumentar la refinadora y las acciones globales cinco puntos cada una, reduciendo cinco puntos en cada canasta de deuda. La canasta global excluye a Refinadora Horizonte.',
+    riskNote: 'Mayor riesgo, no menor: volatilidad anual supuesta 14.2% → 17.1%. Concentrar 20% en una emisora puede causar pérdidas importantes. Si fallan los márgenes supuestos o se interrumpe el suministro, la tesis debe revisarse. Sin garantía ni cobertura cambiaria en acciones.',
+    conversation: '¿Cuánta volatilidad aceptarías si los buenos resultados conviven con un choque geopolítico?',
+    advisorScript: {
+      opening: 'Hola Carlos, ¿cómo estás? ¿Viste la noticia de ayer sobre el conflicto con Irán? Te quería comentar cómo se conecta con Refinadora Horizonte, que tienes en tu portafolio. ¿Tienes unos minutos?',
+      event: 'Hay dos noticias que conviene separar: la refinadora reportó por encima de lo esperado el 20 de octubre; ayer, 21 de octubre, se intensificó el conflicto con Irán y hoy, 22 de octubre, el crudo subió de 75 a 90 dólares por barril. Estas fechas corresponden al escenario ficticio, no a noticias actuales.',
+      impact: 'La refinadora representa 15% de tu cartera. Que suba el petróleo no garantiza que le vaya mejor: también encarece su materia prima. Lo importante es cuánto gana entre comprar crudo y vender productos refinados, y si puede mantener el suministro. En esta simulación suponemos que ese margen resiste, pero no es un resultado observado ni una garantía.',
+      proposal: 'Como te interesa asumir riesgo para buscar crecimiento, podemos evaluar subir la refinadora de 15% a 20% y las acciones globales de 40% a 45%, bajando cinco puntos en cada canasta de deuda y conservando 10% de efectivo. Las acciones globales excluyen esta refinadora. Es una alternativa más arriesgada: la renta variable subiría de 55% a 65% y una sola emisora concentraría 20%. Si fallan los márgenes o se interrumpe el suministro, podrías enfrentar pérdidas importantes; no compraríamos solo porque subió el crudo.',
+      closing: '¿Sigues cómodo con esa posibilidad de pérdida y sin necesitar ese dinero en el corto plazo? Antes de decidir, revisemos la simulación, tu capacidad para absorber pérdidas y qué haríamos si cambia el escenario. También podemos mantener la asignación actual. Esta conversación no autoriza ninguna operación.',
+    },
+    auditSource: 'AUDIT-CL-01',
+    timeline: scenarioTimeline('REPORT-CL-01 (20 oct), ENERGY-01 (21–22 oct), MARGIN-CL-01 (22 oct)', 'Borrador condicionado a márgenes ficticios resistentes y perfil dinámico.'),
+  },
+  'AG-3108': {
+    id: 'NX-2026-044', eventId: 'deuda-global', clientId: 'AG-3108', initials: 'AG', date: '22 oct 2026', client: 'Ana García',
+    value: 4_200_000, profile: 'Muy conservador', riskLevel: 1, goal: 'Preservación de capital', horizon: '3 años',
+    estimatedRisk: { current: 3.2, proposed: 3.2 }, estimatedReturn: { current: 4.1, proposed: 4.1 },
+    event: {
+      title: 'Ana: renta fija conservadora con concentración regional',
+      description: 'Revisión ficticia del 22 oct 2026: 95% del patrimonio está en deuda de EUA y 5% en efectivo. Se propone diversificar emisores por región conservando 95% en deuda de alta calidad y duración corta, sin añadir acciones.',
+      source: 'PORTFOLIO-AG-01 · REGIONS-AG-01',
+      inputs: { scenario_date: '2026-10-22', debt_weight_pct: 95, us_debt_current_pct: 95, us_debt_proposed_pct: 60, mexico_debt_proposed_pct: 20, developed_ex_us_debt_proposed_pct: 15, cash_pct: 5, duration_assumption: 'Corta: hasta 2 años en las canastas de deuda', fx_assumption: 'Cobertura a MXN supuesta en deuda extranjera; costos excluidos y riesgo residual presente' },
+    },
+    holdings: anaHoldings,
+    agents: scenarioAgents([
+      'La revisión REGIONS-AG-01 identifica deuda de un solo país: EUA 95% del patrimonio. La concentración regional es distinta de la clase de activo y de la moneda.',
+      'Deuda soberana ficticia de alta calidad y duración hasta 2 años. Añadir México y mercados desarrollados excluyendo EUA; no añadir acciones ni deuda de alto rendimiento.',
+      'Perfil muy conservador, preservación de capital y horizonte de 3 años. Deuda total 95% antes y después; efectivo 5% constante. Cobertura a MXN supuesta, con riesgo residual.',
+      'Reducir deuda EUA a 60%; añadir 20% de deuda mexicana y 15% de deuda desarrollada excluyendo EUA. Mantener liquidez y priorizar regiones, no mayor riesgo o rendimiento prometido.',
+    ]),
+    causalSteps: [
+      { title: 'Detectar concentración', text: '95% del patrimonio en deuda de EUA, aunque la clase de activo sea conservadora.' },
+      { title: 'Separar región y moneda', text: 'La cobertura cambiaria no cambia el país del emisor ni elimina todos los riesgos.' },
+      { title: 'Preservar el perfil', text: 'Mantener deuda de alta calidad, duración corta y 5% de efectivo; sin acciones.' },
+      { title: 'Diversificar regiones', text: 'Deuda EUA 60%, México 20% y desarrollados excluyendo EUA 15%.' },
+    ],
+    recommendation: 'Diversificar regiones dentro de renta fija: reducir deuda EUA y añadir deuda gubernamental mexicana y desarrollada excluyendo EUA. Mantener 95% en deuda y 5% en efectivo.',
+    riskNote: 'Diversificar no elimina riesgo de tasas, crédito o pérdidas de capital. Cobertura a MXN supuesta para deuda extranjera: persisten riesgo de base, contraparte y costos de renovación. Los costos no se descuentan en esta comparación; no se promete menor volatilidad.',
+    conversation: '¿Tu cartera puede ser conservadora y aun así depender demasiado de un solo país?',
+    advisorScript: {
+      opening: 'Hola Ana, ¿cómo estás? Quería proponerte una revisión tranquila de tu cartera, pensando en tu prioridad de preservar el capital. ¿Te parece si lo vemos juntas?',
+      event: 'Las condiciones de tasas y los riesgos de los mercados de deuda pueden ser distintos entre EUA, México y otros países desarrollados. No te llamo por una emergencia ni por una noticia específica de tu cuenta; es una oportunidad para revisar de qué regiones depende tu ahorro.',
+      impact: 'Aunque tu cartera es conservadora por estar casi toda en renta fija, 95% de tu patrimonio está en deuda de EUA. Eso concentra la exposición en un país. Tener cobertura de moneda no cambia el país del emisor ni elimina todos los riesgos.',
+      proposal: 'La alternativa es mantener 95% en deuda de alta calidad y duración corta, sin añadir acciones: deuda de EUA bajaría de 95% a 60%, incorporaríamos 20% en deuda gubernamental mexicana y 15% en otros mercados desarrollados. Conservaríamos el 5% de efectivo. La cobertura a pesos de la deuda extranjera es un supuesto de esta simulación; tiene costos no incluidos y riesgos residuales. Diversificar no garantiza el capital ni elimina riesgos de tasas o crédito.',
+      closing: '¿Siguen siendo tu prioridad la preservación del capital y tener ese efectivo disponible? Revisemos con calma costos, cobertura y riesgos antes de decidir; también podemos mantener la cartera actual. Esta conversación no autoriza ninguna operación.',
+    },
+    auditSource: 'AUDIT-AG-01',
+    timeline: scenarioTimeline('PORTFOLIO-AG-01 · REGIONS-AG-01', 'Borrador de diversificación regional, sin incorporar renta variable.'),
+  },
+};
+
+export const clients: Client[] = Object.values(cases).map((scenario) => ({
+  id: scenario.clientId, name: scenario.client, initials: scenario.initials, profile: scenario.profile,
+  value: scenario.value, event: scenario.event.title, status: 'Propuesta lista',
+}));
+
+export const isClientId = (value: unknown): value is ClientId =>
+  typeof value === 'string' && Object.hasOwn(cases, value);
+
+export function cashHolding(scenario: Scenario) {
+  return scenario.holdings.find((holding) => holding.id === 'efectivo')!;
+}
+
+export function rebalanceFor(scenario: Scenario) {
+  const assets = scenario.holdings.filter((holding) => holding.id !== 'efectivo');
+  return {
+    buys: assets.reduce((total, h) => total + Math.max(0, amount(h.proposed - h.current, scenario.value)), 0),
+    sales: assets.reduce((total, h) => total + Math.max(0, amount(h.current - h.proposed, scenario.value)), 0),
+    cashUsed: amount(cashHolding(scenario).current - cashHolding(scenario).proposed, scenario.value),
+  };
+}
+
+export const rebalance = rebalanceFor(cases['MT-1042']);
+
+export function casePerspective(screen: Screen, perspective: Perspective, scenario?: Scenario) {
+  const base = perspectives[perspective].screens[screen];
+  if (screen === 'eventos') {
+    const globalCopy: Record<Perspective, { title: string; body: string; points: string[] }> = {
+      asesor: { title: 'Señales globales, impacto por evaluar', body: 'Revisa tasas, energía, divisas y renta fija global. El impacto sobre cada cliente se evalúa después en la bandeja y en su análisis.', points: ['Contexto de mercado', 'Sin enfoque en un cliente', 'Impacto en la bandeja'] },
+      cliente: { title: 'Entender el mercado antes de revisar la cartera', body: 'Estos eventos describen escenarios generales, no una recomendación personal. Su relevancia depende de los objetivos y riesgos de cada cartera.', points: ['Eventos ficticios', 'Sin recomendación personal', 'Consulta a tu asesor'] },
+      tecnica: { title: 'Eventos independientes de los clientes', body: 'Los fixtures de mercado no contienen identificadores de cliente. Los casos referencian eventos mediante eventId; la asociación no personaliza el radar.', points: ['source: fixture', 'scope: market', 'ingestion: none'] },
+      control: { title: 'Contexto global con fuentes ficticias', body: 'Las señales no provienen de fuentes de mercado conectadas. No contienen información de carteras ni constituyen dictámenes de idoneidad.', points: ['Sin datos de clientes', 'Sin monitoreo real', 'Sin recomendación individual'] },
+    };
+    return globalCopy[perspective];
+  }
+  if (scenario?.clientId === 'MT-1042' && !['eventos', 'bandeja'].includes(screen)) return base;
+  const titles: Record<Perspective, string> = {
+    asesor: 'Evidencia para la conversación',
+    cliente: 'Tus metas antes de cualquier movimiento',
+    tecnica: 'Entradas y salidas estáticas por caso',
+    control: 'Supuestos visibles, sin autorización',
+  };
+  if (!scenario) return {
+    title: titles[perspective],
+    body: 'Tres casos ficticios: Mariana moderada, Carlos dinámico y Ana muy conservadora. Selecciona un cliente en la bandeja para abrir su análisis, simulación y trazabilidad.',
+    points: ['Tres escenarios completos', 'Sin selección automática', 'Sin operaciones reales'],
+  };
+  const cash = cashHolding(scenario);
+  const movements = rebalanceFor(scenario);
+  const bodies: Record<Perspective, string> = {
+    asesor: `${scenario.client}: ${scenario.recommendation} Confirma metas y capacidad de pérdida antes de cualquier operación real.`,
+    cliente: `${scenario.goal}. ${scenario.conversation} Esta comparación es ficticia y requiere una conversación con tu asesor, no una acción inmediata.`,
+    tecnica: `${scenario.id} / ${scenario.clientId}. Fuente: ${scenario.event.source}. Importes = patrimonio × ponderación / 100; salidas predefinidas, sin LLM ni optimizador.`,
+    control: `${scenario.riskNote} No hay KYC certificado, aprobación registrada ni validación regulatoria.`,
+  };
+  return {
+    title: `${titles[perspective]} · ${scenario.client}`,
+    body: bodies[perspective],
+    points: screen === 'simulador'
+      ? [`Compras: ${money(movements.buys)}`, `Ventas: ${money(movements.sales)}`, `Uso de efectivo: ${money(movements.cashUsed)}`]
+      : [`Perfil: ${scenario.profile}`, `Patrimonio: ${money(scenario.value)} MXN`, `Reserva propuesta: ${cash.proposed}%`],
+  };
+}

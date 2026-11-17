@@ -49,6 +49,21 @@ small { font-size: 12px; }
 .nav-label { font-size: 9px; letter-spacing: 1.4px; color: var(--secondary); font-weight: 650; padding: 0 14px 13px; }
 .main-nav { display: flex; flex-direction: column; gap: 6px; }
 .main-nav a { display: flex; align-items: center; gap: 11px; padding: 13px 13px; border-radius: 7px; color: #63737b; font-size: 12px; font-weight: 500; position: relative; }
+.main-nav button { display: flex; align-items: center; gap: 11px; padding: 13px; border: 0; border-radius: 7px; background: #f4f7f6; color: #63737b; font: inherit; font-size: 12px; text-align: left; cursor: not-allowed; }
+.main-nav button svg { flex-shrink: 0; }
+.selection-hint { padding: 12px; font-size: 11px; line-height: 1.6; color: var(--secondary); }
+.clients-table tr.selected-client { background: #eaf3ef; }
+.clients-table tr.selected-client td { color: var(--secondary); }
+.event-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 16px; }
+.event-inputs div { min-width: 0; }
+.event-inputs dt { color: var(--secondary); font-size: 11px; overflow-wrap: anywhere; }
+.event-inputs dd { margin: 5px 0 0; font-size: 13px; overflow-wrap: anywhere; }
+.metric-card strong.risk-increase { color: #8d5e1b; }
+.advisor-script > .body-copy { margin-top: 12px; }
+.advisor-script-steps { padding-left: 22px; margin: 22px 0; }
+.advisor-script-steps li { padding-left: 6px; margin-bottom: 20px; }
+.advisor-script-steps h3 { font-size: 13px; }
+.advisor-script-steps blockquote { margin: 8px 0 0; padding-left: 14px; border-left: 3px solid var(--border); color: var(--secondary); font-size: 12px; line-height: 1.9; }
 .main-nav a:hover { background: #f4f7f6; }
 .main-nav a.active { color: #226954; background: #eaf3ef; font-weight: 650; }
 .main-nav a.active::before { content: ""; width: 3px; height: 20px; position: absolute; left: -20px; background: #38836b; border-radius: 0 4px 4px 0; }

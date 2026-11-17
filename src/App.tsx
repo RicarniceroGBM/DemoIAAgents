@@ -1,6 +1,7 @@
 import { Activity, ArrowUpRight, BriefcaseBusiness, Check, ChevronDown, ChevronRight, CircleHelp, FlaskConical, GitBranch, LayoutDashboard, Menu, PanelLeftClose, RotateCcw, Scale, ShieldCheck, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { demoCase, isPerspective, isScreen, perspectives, screenList } from './data/demo.ts';
+import { cases, demoCase, isPerspective, isScreen, marketEvents, perspectives, screenList } from './data/demo.ts';
+import { isCaseScreen, readRoute, routeTo } from './routes.ts';
 import { Badge, CaseHeader, DemoDialog, Journey, PerspectiveNote } from './components/Shared.tsx';
 import Events from './screens/Events.tsx';
 import Inbox from './screens/Inbox.tsx';
@@ -11,18 +12,6 @@ import type { Decision, Perspective, Screen } from './types.ts';
 
 const storageKey = 'nexo-demo-ui';
 const navIcons = [LayoutDashboard, BriefcaseBusiness, GitBranch, Scale, ShieldCheck];
-const sections = ['evento', 'analisis', 'hallazgos', 'sintesis'];
-
-function readRoute(fallback: Screen): { screen: Screen; section?: string; warning: string } {
-  const hash = window.location.hash;
-  if (!hash || hash === '#') return { screen: fallback, warning: '' };
-  const parts = hash.replace(/^#\/?/, '').split('/');
-  const [screen, section] = parts;
-  if (isScreen(screen) && parts.length <= 2 && (!section || (screen === 'detalle' && sections.includes(section)))) {
-    return { screen, section, warning: '' };
-  }
-  return { screen: 'eventos', warning: 'La ruta no existe en esta demo. Se muestra el Centro de eventos.' };
-}
 
 function readInitialState() {
   let screen: Screen = 'eventos';
@@ -43,7 +32,7 @@ function readInitialState() {
     console.error('No se pudieron leer las preferencias de la demo.', error);
     warning = 'No se pudieron leer las preferencias. La demo sigue disponible sin restaurar la sesión.';
   }
-  return { route: readRoute(screen), perspective, warning };
+  return { route: readRoute(window.location.hash, screen), perspective, warning };
 }
 
 export default function App() {
@@ -56,21 +45,24 @@ export default function App() {
   const [resetKey, setResetKey] = useState(0);
   const [resetMessage, setResetMessage] = useState('');
   const titleRef = useRef<HTMLHeadingElement>(null);
-  const lastFocusedRoute = useRef(`${initial.route.screen}/${initial.route.section || ''}`);
+  const lastFocusedRoute = useRef('');
   const menuTrigger = useRef<HTMLButtonElement>(null);
   const current = screenList.find((screen) => screen.id === route.screen)!;
-  const isCase = ['detalle', 'simulador', 'aprobacion'].includes(route.screen);
+  const isCase = isCaseScreen(route.screen);
+  const scenario = route.clientId ? cases[route.clientId] : undefined;
 
   useEffect(() => {
-    if (!window.location.hash) window.history.replaceState(null, '', `#/${initial.route.screen}`);
+    window.history.replaceState(null, '', routeTo(initial.route.screen, initial.route.clientId, initial.route.section));
     function onHashChange() {
-      setRoute(readRoute('eventos'));
+      const next = readRoute(window.location.hash, 'eventos');
+      window.history.replaceState(null, '', routeTo(next.screen, next.clientId, next.section));
+      setRoute(next);
       setMobileMenu(false);
       setDecision(null);
     }
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
-  }, [initial.route.screen]);
+  }, [initial.route]);
 
   useEffect(() => {
     try {
@@ -83,14 +75,14 @@ export default function App() {
 
   useEffect(() => {
     document.title = `${current.label} | Nexo`;
-    const routeKey = `${route.screen}/${route.section || ''}`;
+    const routeKey = `${route.screen}/${route.section || ''}/${route.clientId || ''}`;
     if (lastFocusedRoute.current === routeKey && !route.section) return;
     lastFocusedRoute.current = routeKey;
     const target = route.section ? document.getElementById(route.section) : titleRef.current;
     target?.focus({ preventScroll: true });
     if (route.section) target?.scrollIntoView({ block: 'start', behavior: 'instant' });
     else window.scrollTo({ top: 0, behavior: 'instant' });
-  }, [route.screen, route.section, current.label]);
+  }, [route.screen, route.section, route.clientId, current.label]);
 
   useEffect(() => {
     if (!mobileMenu) return;
@@ -118,11 +110,16 @@ export default function App() {
     <a className="skip-link" href="#main-content" onClick={(event) => { event.preventDefault(); titleRef.current?.focus(); }}>Ir al contenido</a>
     {mobileMenu && <button className="sidebar-backdrop" aria-label="Cerrar navegación" onClick={() => { setMobileMenu(false); menuTrigger.current?.focus(); }} />}
     <aside id="sidebar" className={`sidebar ${mobileMenu ? 'sidebar-open' : ''}`} aria-label="Navegación principal">
-      <a href="#/eventos" className="brand" aria-label="Nexo, inicio"><span className="brand-mark"><GitBranch size={22} /></span><span>nexo<span className="brand-period">.</span><small>INTELIGENCIA PATRIMONIAL</small></span></a>
+      <a href={routeTo('eventos', route.clientId)} className="brand" aria-label="Nexo, inicio"><span className="brand-mark"><GitBranch size={22} /></span><span>nexo<span className="brand-period">.</span><small>INTELIGENCIA PATRIMONIAL</small></span></a>
       <div className="workspace-label"><span className="workspace-symbol"><BriefcaseBusiness size={16} /></span><div><strong>Wealth Intelligence</strong><span>Espacio de demostración</span></div><Badge>DEMO</Badge></div>
       <p className="nav-label">ESPACIO DE TRABAJO</p>
-      <nav className="main-nav">{screenList.map((screen, i) => { const Icon = navIcons[i]; return <a key={screen.id} href={`#/${screen.id}`} className={route.screen === screen.id ? 'active' : ''} aria-current={route.screen === screen.id ? 'page' : undefined} onClick={() => setMobileMenu(false)}><Icon size={18} /><span>{screen.label}</span>{screen.id === 'eventos' ? <span className="nav-count">4</span> : screen.id === 'bandeja' ? <span className="nav-notification" /> : null}</a>; })}</nav>
-      <div className="sidebar-case"><span className="sidebar-case-icon"><Sparkles size={17} /></span><p>Una señal.<br /><strong>Una mejor perspectiva.</strong></p><span>Explora cómo cuatro agentes conectan el mercado con las metas de un cliente.</span><a href="#/detalle">Conocer el caso<ArrowUpRight size={15} /></a></div>
+      <nav className="main-nav">{screenList.map((screen, i) => {
+        const Icon = navIcons[i];
+        if (!scenario && isCaseScreen(screen.id)) return <button key={screen.id} disabled aria-describedby="selection-hint"><Icon size={18} /><span>{screen.label}</span></button>;
+        return <a key={screen.id} href={routeTo(screen.id, route.clientId)} className={route.screen === screen.id ? 'active' : ''} aria-current={route.screen === screen.id ? 'page' : undefined} onClick={() => setMobileMenu(false)}><Icon size={18} /><span>{screen.label}</span>{screen.id === 'eventos' ? <span className="nav-count">{marketEvents.length}</span> : screen.id === 'bandeja' ? <span className="nav-notification" /> : null}</a>;
+      })}</nav>
+      {!scenario && <p id="selection-hint" className="selection-hint">Selecciona un cliente en la bandeja para habilitar las tres etapas del caso.</p>}
+      <div className="sidebar-case"><span className="sidebar-case-icon"><Sparkles size={17} /></span><p>Una señal.<br /><strong>Una mejor perspectiva.</strong></p><span>Explora cómo cuatro agentes conectan el mercado con las metas de un cliente.</span><a href={routeTo(scenario ? 'detalle' : 'bandeja', route.clientId)}>{scenario ? 'Conocer el caso' : 'Seleccionar cliente'}<ArrowUpRight size={15} /></a></div>
       <div className="sidebar-bottom"><div className="environment"><span className="status-dot" />Entorno ilustrativo<span>v1.0</span></div><button className="reset-button" onClick={resetDemo}><RotateCcw size={15} />Reiniciar demo</button><div className="user-profile"><span className="avatar avatar-small">AL</span><div><strong>Alex López</strong><span>Perfil ficticio · sin sesión real</span></div><span className="profile-check"><Check size={12} /></span></div></div>
     </aside>
     <div className="main-shell">
@@ -131,23 +128,23 @@ export default function App() {
       </header>
       <div className="demo-notice"><FlaskConical size={14} /><span><strong>Datos 100% ficticios.</strong> Sin IA conectada, asesoría financiera ni operaciones reales. Prototipo conceptual inspirado en GBM; sin afiliación.</span></div>
       <main id="main-content" className="main-content">
-        {(storageWarning || route.warning) && <div className="warning-note" role="alert"><CircleHelp size={18} /><span>{storageWarning || route.warning}</span></div>}
+        {[storageWarning, route.warning].filter(Boolean).map((warning) => <div key={warning} className="warning-note" role="alert"><CircleHelp size={18} /><span>{warning}</span></div>)}
         <span className="sr-only" role="status">{resetMessage}</span>
         <div className="page-heading"><div><p className="eyebrow">{current.eyebrow}</p><h1 ref={titleRef} tabIndex={-1}>{current.label}</h1><p>{current.description}</p></div>
           <label className="perspective-selector"><span className="selector-icon"><ShieldCheck size={17} /></span><span><span className="selector-label">TU PERSPECTIVA</span><select aria-label="Seleccionar perspectiva" value={perspective} onChange={(event) => { if (isPerspective(event.target.value)) setPerspective(event.target.value); }}>{Object.entries(perspectives).map(([id, copy]) => <option key={id} value={id}>{copy.label}</option>)}</select></span><ChevronDown size={15} /></label>
         </div>
-        {isCase && <><CaseHeader /><Journey screen={route.screen} section={route.section} /></>}
+        {isCase && scenario && <><CaseHeader scenario={scenario} /><Journey screen={route.screen} section={route.section} clientId={scenario.clientId} /></>}
         <div className="screen-content" key={resetKey}>
-          {route.screen === 'eventos' && <Events />}
-          <PerspectiveNote screen={route.screen} perspective={perspective} />
-          {route.screen === 'bandeja' && <Inbox />}
-          {route.screen === 'detalle' && <AgentDetail perspective={perspective} />}
-          {route.screen === 'simulador' && <Simulator />}
-          {route.screen === 'aprobacion' && <Approval onDecision={setDecision} />}
+          {route.screen === 'eventos' && <Events clientId={route.clientId} />}
+          <PerspectiveNote screen={route.screen} perspective={perspective} scenario={scenario} />
+          {route.screen === 'bandeja' && <Inbox scenario={scenario} />}
+          {route.screen === 'detalle' && scenario && <AgentDetail perspective={perspective} scenario={scenario} />}
+          {route.screen === 'simulador' && scenario && <Simulator scenario={scenario} />}
+          {route.screen === 'aprobacion' && scenario && <Approval onDecision={setDecision} scenario={scenario} />}
         </div>
         <footer className="page-footer"><span><span className="footer-brand">nexo.</span> Inteligencia que acompaña.</span><span><Activity size={12} />Prototipo visual · {demoCase.date} · fecha ficticia</span></footer>
       </main>
     </div>
-    {decision && <DemoDialog decision={decision} onClose={() => setDecision(null)} />}
+    {decision && scenario && <DemoDialog decision={decision} clientId={scenario.clientId} onClose={() => setDecision(null)} />}
   </div>;
 }

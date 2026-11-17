@@ -5,7 +5,7 @@ export type Decision = 'aprobar' | 'modificar' | 'rechazar' | 'revision';
 
 export interface MarketEvent {
   id: string;
-  category: 'Política monetaria' | 'Inflación' | 'Divisas';
+  category: 'Política monetaria' | 'Inflación' | 'Divisas' | 'Energía y geopolítica' | 'Renta fija global';
   institution: string;
   title: string;
   description: string;
@@ -16,15 +16,16 @@ export interface MarketEvent {
   tags: string[];
 }
 
+export type ClientId = 'MT-1042' | 'CL-2086' | 'AG-3108';
+
 export interface Client {
-  id: string;
+  id: ClientId;
   name: string;
   initials: string;
   profile: string;
   value: number;
   event: string;
   status: string;
-  main: boolean;
 }
 
 export interface Agent {
@@ -46,6 +47,41 @@ export interface Holding {
   proposed: number;
   sensitivity: string;
   rationale: string;
+  assetClass?: 'debt' | 'equity' | 'cash';
+  region?: string;
+  currency?: string;
+}
+
+export interface Scenario {
+  id: string;
+  eventId: string;
+  clientId: ClientId;
+  initials: string;
+  date: string;
+  client: string;
+  value: number;
+  profile: string;
+  riskLevel: number;
+  goal: string;
+  horizon: string;
+  estimatedRisk: { current: number; proposed: number };
+  estimatedReturn: { current: number; proposed: number };
+  event: { title: string; description: string; source: string; inputs: Record<string, string | number> };
+  holdings: Holding[];
+  agents: Agent[];
+  causalSteps: { title: string; text: string }[];
+  recommendation: string;
+  riskNote: string;
+  conversation: string;
+  advisorScript: {
+    opening: string;
+    event: string;
+    impact: string;
+    proposal: string;
+    closing: string;
+  };
+  auditSource: string;
+  timeline: { time: string; title: string; body: string }[];
 }
 
 export interface PerspectiveCopy {

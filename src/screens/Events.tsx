@@ -1,11 +1,13 @@
 import { ArrowDownRight, ArrowRight, ArrowUpRight, BellRing, Building2, CheckCircle2, Globe2, Landmark, Layers3, Search, Sparkles, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
-import { demoCase, marketEvents } from '../data/demo.ts';
+import { cases, clients, demoCase, marketEvents } from '../data/demo.ts';
 import { Badge, SectionTitle } from '../components/Shared.tsx';
+import { routeTo } from '../routes.ts';
+import type { ClientId } from '../types.ts';
 
-const categories = ['Todos los eventos', 'Política monetaria', 'Inflación', 'Divisas'];
+const categories = ['Todos los eventos', ...new Set(marketEvents.map((event) => event.category))];
 
-export default function Events() {
+export default function Events({ clientId }: { clientId?: ClientId }) {
   const [category, setCategory] = useState('Todos los eventos');
   const [search, setSearch] = useState('');
   const visible = marketEvents.filter((event) =>
@@ -16,7 +18,7 @@ export default function Events() {
       <div className="hero-copy"><div className="hero-kicker"><span className="live-dot" />INTELIGENCIA QUE CONECTA</div>
         <h2>El mercado se mueve.<br /><span>Tu asesoría evoluciona.</span></h2>
         <p>Transforma señales de mercado en decisiones patrimoniales informadas, con una visión multiagente.</p>
-        <a className="button button-light" href="#/detalle">Explorar el caso de ejemplo<ArrowUpRight size={16} /></a>
+        <a className="button button-light" href={routeTo('bandeja', clientId)}>Seleccionar un cliente<ArrowUpRight size={16} /></a>
         <div className="hero-footnote"><ShieldIcon /> Análisis explicable. Decisiones humanas.</div>
       </div>
       <div className="hero-graphic" aria-hidden="true">
@@ -32,9 +34,9 @@ export default function Events() {
     </section>
 
     <div className="stats-grid">
-      <Stat icon={<BellRing size={19} />} label="Eventos en el radar" value="04" detail="Escenarios de ejemplo" />
+      <Stat icon={<BellRing size={19} />} label="Eventos en el radar" value={String(marketEvents.length).padStart(2, '0')} detail="Escenarios de ejemplo" />
       <Stat icon={<Layers3 size={19} />} label="Agentes especializados" value="04" detail="Análisis predefinidos" />
-      <Stat icon={<TrendingUp size={19} />} label="Caso listo para explorar" value="01" detail="De la señal a la decisión" />
+      <Stat icon={<TrendingUp size={19} />} label="Casos listos para explorar" value={String(clients.length).padStart(2, '0')} detail="De la señal a la decisión" />
       <Stat icon={<CheckCircle2 size={19} />} label="Control de la decisión" value="Tuyo" detail="Sin ejecución automática" />
     </div>
 
@@ -48,7 +50,7 @@ export default function Events() {
       <h3>{event.title}</h3><p>{event.description}</p>
       {event.featured && <div className="rate-change"><div><span>Tasa anterior</span><strong>{demoCase.currentRate.toFixed(2)}<small>%</small></strong></div><ArrowRight size={21} /><div><span>Tasa del escenario</span><strong>{demoCase.proposedRate.toFixed(2)}<small>%</small></strong></div><span className="rate-delta">−25 pb</span></div>}
       <div className="event-tags">{event.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
-      <div className="event-bottom">{event.featured ? <><span className="agent-availability"><span className="mini-agent"><Layers3 size={13} /></span>4 análisis disponibles</span><a href="#/bandeja" className="text-link">Ver caso asociado<ArrowRight size={15} /></a></> : <><span className="muted">Fuente de ejemplo · sin conexión</span><Badge>Vista previa</Badge></>}</div>
+      <div className="event-bottom">{Object.values(cases).some((scenario) => scenario.eventId === event.id) ? <><span className="agent-availability"><span className="mini-agent"><Layers3 size={13} /></span>Análisis de impacto disponible</span><a href={routeTo('bandeja', clientId)} className="text-link" aria-label={`Ver impacto en carteras: ${event.title}`}>Ver impacto en carteras<ArrowRight size={15} /></a></> : <><span className="muted">Fuente de ejemplo · sin conexión</span><Badge>Vista previa</Badge></>}</div>
     </article>)}</div>
     {visible.length === 0 && <div className="panel empty-state"><Search size={27} /><h3>No hay eventos con esos filtros</h3><p>Prueba otra palabra o vuelve a ver todos los escenarios.</p><button className="button button-secondary" onClick={() => { setSearch(''); setCategory('Todos los eventos'); }}>Limpiar filtros</button></div>}
     <div className="bottom-caption"><span className="small-line" />Una señal es el comienzo. El contexto del cliente hace la diferencia.<span className="small-line" /></div>
